@@ -124,7 +124,7 @@ function _M.connect_redis(options)
   local opts = {}
 
   local url = options and options.url or env.get('REDIS_URL')
-
+  local resilient = options.resilient
 
   if url then
     url = resty_url.split(url, 'redis')
@@ -152,14 +152,22 @@ function _M.connect_redis(options)
 
   local ok, err = red:connect(_M.resolve(host, port))
   if not ok then
-    return nil, _M.error("failed to connect to redis on ", host, ":", port, ": ", err)
+    if not resilient then
+      return nil, _M.error("failed to connect to redis on ", host, ":", port, ": ", err)
+    else
+      return nil, _M.error_silently("failed to connect to redis on ", host, ":", port, ": ", err)
+    end
   end
 
   if opts.password then
     ok = red:auth(opts.password)
 
     if not ok then
-      return nil, _M.error("failed to auth on redis ", host, ":", port)
+      if not resilient then
+        return nil, _M.error("failed to auth on redis ", host, ":", port)
+      else
+        return nil, _M.error_silently("failed to auth on redis ", host, ":", port)
+      end
     end
   end
 
@@ -167,7 +175,11 @@ function _M.connect_redis(options)
     ok = red:select(opts.db)
 
     if not ok then
-      return nil, _M.error("failed to select db ", opts.db, " on redis ", host, ":", port)
+      if not resilient then
+        return nil, _M.error("failed to select db ", opts.db, " on redis ", host, ":", port)
+      else
+        return nil, _M.error_silently("failed to select db ", opts.db, " on redis ", host, ":", port)
+      end
     end
   end
 
@@ -187,15 +199,23 @@ function _M.match_xml_element(xml, element, value)
   return string.find(xml, pattern, xml_header_len, xml_header_len, true)
 end
 
--- error and exit
-function _M.error(...)
+-- error without exit
+function _M.error_silently(...)
   if ngx.get_phase() == 'timer' then
     return table.concat(table.pack(...))
   else
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
     ngx.say(...)
-    ngx.exit(ngx.status)
   end
+end
+
+-- error and exit
+function _M.error(...)
+  local err = _M.error_silently(...)
+  if err then
+    return err
+  end
+  ngx.exit(ngx.status)
 end
 
 function _M.missing_args(text)

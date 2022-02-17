@@ -22,12 +22,12 @@ describe('3scale utils', function()
             assert.spy(ngx.say).was.called_with('cache issue ' .. 'host:' .. 6379)
         end)
 
-        it('.error_silently logs the error without exiting chain', function()
+        it('.error_gracefully logs the error without exiting chain', function()
             stub(ngx, 'get_phase', function() return 'init' end)
             stub(ngx, 'say', function(...) return nil end)
 
             local exit = spy.on(ngx, 'exit', function(s) return 'exited!' end)
-            local error = _M.error_silently('redis is not reachable')
+            local error = _M.error_gracefully('redis is not reachable')
 
             assert.spy(ngx.exit).was_not_called()
             assert.spy(ngx.say).was.called_with('redis is not reachable')

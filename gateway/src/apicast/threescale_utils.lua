@@ -151,29 +151,36 @@ function _M.connect_redis(options)
   red:set_timeout(opts.timeout)
 
   local ok, err = red:connect(_M.resolve(host, port))
-  if not ok and not resilient then
-    return nil, _M.error("failed to connect to redis on ", host, ":", port, ": ", err)
-  elseif not ok and resilient then
-    return nil, _M.error_gracefully("failed to connect to redis on ", host, ":", port, ": ", err)
+
+  if not ok then
+    if not resilient then
+      return nil, _M.error("failed to connect to redis on ", host, ":", port, ": ", err)
+    else
+      return nil, _M.error_gracefully("failed to connect to redis on ", host, ":", port, ": ", err)
+    end
   end
 
   if opts.password then
     ok = red:auth(opts.password)
 
-    if not ok and not resilient then
-      return nil, _M.error("failed to auth on redis ", host, ":", port)
-    elseif not ok and resilient then
-      return nil, _M.error_gracefully("failed to auth on redis ", host, ":", port)
+    if not ok then
+      if not resilient then
+        return nil, _M.error("failed to auth on redis ", host, ":", port)
+      else
+        return nil, _M.error_gracefully("failed to auth on redis ", host, ":", port)
+      end
     end
   end
 
   if opts.db then
     ok = red:select(opts.db)
 
-    if not ok and not resilient then
-      return nil, _M.error("failed to select db ", opts.db, " on redis ", host, ":", port)
-    elseif not ok and resilient then
-      return nil, _M.error_gracefully("failed to select db ", opts.db, " on redis ", host, ":", port)
+    if not ok then
+      if not resilient then
+        return nil, _M.error("failed to select db ", opts.db, " on redis ", host, ":", port)
+      else
+        return nil, _M.error_gracefully("failed to select db ", opts.db, " on redis ", host, ":", port)
+      end
     end
   end
 
